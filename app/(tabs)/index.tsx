@@ -1,98 +1,207 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Alert, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+
+interface PDFBook {
+  id: string;
+  name: string;
+  path: string;
+}
+
+const ITEMS_PER_PAGE = 6;
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const [books, setBooks] = useState<PDFBook[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
+  useEffect(() => {
+    loadPDFBooks();
+  }, []);
+
+  const loadPDFBooks = async () => {
+    try {
+      setLoading(true);
+      
+      // For development, we'll use the static list since we know the files exist
+      const pdfBooks: PDFBook[] = [
+        {
+          id: '1',
+          name: 'Hafezi Quran',
+          path: 'Hafezi-Quran.pdf'
+        },
+        {
+          id: '2', 
+          name: 'The Noble Quran',
+          path: 'The-noble-Quran.pdf'
+        }
+      ];
+      
+      setBooks(pdfBooks);
+    } catch (error) {
+      console.error('Error loading PDF books:', error);
+      Alert.alert('Error', 'Failed to load PDF books');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalPages = Math.ceil(books.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentBooks = books.slice(startIndex, endIndex);
+
+  const handleBookPress = (book: PDFBook) => {
+    router.push({
+      pathname: '/pdf-viewer',
+      params: { 
+        bookName: book.name,
+        bookPath: book.path 
+      }
+    });
+  };
+
+  const renderBookItem = ({ item }: { item: PDFBook }) => (
+    <TouchableOpacity 
+      style={styles.bookCard} 
+      onPress={() => handleBookPress(item)}
+    >
+      <ThemedView style={styles.bookIcon}>
+        <IconSymbol name="doc.text.fill" size={40} color="#007AFF" />
+      </ThemedView>
+      <ThemedText style={styles.bookTitle} numberOfLines={2}>
+        {item.name}
+      </ThemedText>
+    </TouchableOpacity>
+  );
+
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <ThemedView style={styles.paginationContainer}>
+        <TouchableOpacity
+          style={[styles.paginationButton, currentPage === 1 && styles.disabledButton]}
+          onPress={() => setCurrentPage(Math.max(1, currentPage - 1))}
+          disabled={currentPage === 1}
+        >
+          <IconSymbol name="chevron.left" size={20} color={currentPage === 1 ? '#999' : '#007AFF'} />
+        </TouchableOpacity>
+
+        <ThemedText style={styles.pageInfo}>
+          {currentPage} of {totalPages}
+        </ThemedText>
+
+        <TouchableOpacity
+          style={[styles.paginationButton, currentPage === totalPages && styles.disabledButton]}
+          onPress={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+          disabled={currentPage === totalPages}
+        >
+          <IconSymbol name="chevron.right" size={20} color={currentPage === totalPages ? '#999' : '#007AFF'} />
+        </TouchableOpacity>
+      </ThemedView>
+    );
+  };
+
+  if (loading) {
+    return (
+      <ThemedView style={styles.container}>
+        <ThemedText style={styles.loadingText}>Loading books...</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  return (
+    <ThemedView style={styles.container}>
+      <ThemedView style={styles.header}>
+        <ThemedText type="title" style={styles.headerTitle}>Quran & Hadith Books</ThemedText>
+        <ThemedText style={styles.headerSubtitle}>
+          {books.length} books available
         </ThemedText>
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+
+      <FlatList
+        data={currentBooks}
+        renderItem={renderBookItem}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        contentContainerStyle={styles.booksList}
+        showsVerticalScrollIndicator={false}
+      />
+
+      {renderPagination()}
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    padding: 16,
   },
-  stepContainer: {
-    gap: 8,
+  header: {
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    textAlign: 'center',
     marginBottom: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  headerSubtitle: {
+    textAlign: 'center',
+    opacity: 0.7,
+  },
+  loadingText: {
+    textAlign: 'center',
+    marginTop: 50,
+    fontSize: 16,
+  },
+  booksList: {
+    paddingBottom: 20,
+  },
+  bookCard: {
+    flex: 1,
+    margin: 8,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 122, 255, 0.2)',
+  },
+  bookIcon: {
+    marginBottom: 12,
+  },
+  bookTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+    paddingVertical: 16,
+  },
+  paginationButton: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    marginHorizontal: 8,
+  },
+  disabledButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  pageInfo: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginHorizontal: 16,
   },
 });
