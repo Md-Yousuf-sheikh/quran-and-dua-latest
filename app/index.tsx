@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import moment from 'moment-timezone';
+import moment from "moment-timezone";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -14,7 +14,12 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useCurrentLocation } from "@/hooks/useCurrentLocation";
-import { getNextPrayerTime, getPrayerTimes, getTimeUntilNextPrayer, PrayerTimeData } from "@/utils/prayerTimes";
+import {
+  getNextPrayerTime,
+  getPrayerTimes,
+  getTimeUntilNextPrayer,
+  PrayerTimeData,
+} from "@/utils/prayerTimes";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface PDFBook {
@@ -36,7 +41,11 @@ const HomeScreen = React.memo(() => {
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimeData[]>([]);
   const router = useRouter();
   const { top } = useSafeAreaInsets();
-  const { location, error: locationError, loading: locationLoading } = useCurrentLocation();
+  const {
+    location,
+    error: locationError,
+    loading: locationLoading,
+  } = useCurrentLocation();
 
   // Update current time every minute
   useEffect(() => {
@@ -55,6 +64,8 @@ const HomeScreen = React.memo(() => {
     return [];
   }, [location, currentTime]);
 
+  console.log("calculatedPrayerTimes", JSON.stringify(calculatedPrayerTimes));
+
   // Update prayer times when calculated
   useEffect(() => {
     setPrayerTimes(calculatedPrayerTimes);
@@ -72,11 +83,11 @@ const HomeScreen = React.memo(() => {
 
   // Memoize format functions using Moment.js
   const formatTime = useCallback((date: Date) => {
-    return moment(date).format('HH:mm');
+    return moment(date).format("hh:mm A");
   }, []);
 
   const formatDate = useCallback((date: Date) => {
-    return moment(date).format('dddd, MMMM Do YYYY');
+    return moment(date).format("dddd, MMMM Do YYYY");
   }, []);
 
   useEffect(() => {
@@ -118,21 +129,24 @@ const HomeScreen = React.memo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
     const currentBooks = books.slice(startIndex, endIndex);
-    
+
     return { totalPages, startIndex, endIndex, currentBooks };
   }, [books, currentPage]);
 
   const { totalPages, currentBooks } = paginationData;
 
-  const handleBookPress = useCallback((book: PDFBook) => {
-    router.push({
-      pathname: "/pdf-viewer",
-      params: {
-        bookName: book.name,
-        bookPath: book.path,
-      },
-    });
-  }, [router]);
+  const handleBookPress = useCallback(
+    (book: PDFBook) => {
+      router.push({
+        pathname: "/pdf-viewer",
+        params: {
+          bookName: book.name,
+          bookPath: book.path,
+        },
+      });
+    },
+    [router]
+  );
 
   const renderPagination = useCallback(() => {
     if (totalPages <= 1) return null;
@@ -189,7 +203,7 @@ const HomeScreen = React.memo(() => {
       style={[styles.scrollContainer]}
       showsVerticalScrollIndicator={false}
     >
-        {/* Next Prayer Highlight */}
+      {/* Next Prayer Highlight */}
       <ThemedView style={[styles.nextPrayerSection, { paddingTop: top }]}>
         <ThemedView style={styles.nextPrayerCard}>
           <View style={styles.nextPrayerInfo}>
@@ -238,7 +252,9 @@ const HomeScreen = React.memo(() => {
         <ThemedView style={styles.prayerTimesSection}>
           <ThemedText style={styles.sectionTitle}>Prayer Times</ThemedText>
           {locationLoading ? (
-            <ThemedText style={styles.loadingText}>Getting location...</ThemedText>
+            <ThemedText style={styles.loadingText}>
+              Getting location...
+            </ThemedText>
           ) : locationError ? (
             <ThemedText style={styles.errorText}>
               Unable to get location. Please enable location access in settings.
@@ -254,13 +270,19 @@ const HomeScreen = React.memo(() => {
                       color="#22C55E"
                     />
                   </View>
-                  <ThemedText style={styles.prayerName}>{prayer.name}</ThemedText>
-                  <ThemedText style={styles.prayerTime}>{prayer.time}</ThemedText>
+                  <ThemedText style={styles.prayerName}>
+                    {prayer.name}
+                  </ThemedText>
+                  <ThemedText style={styles.prayerTime}>
+                    {moment(prayer.dateTime).format("hh:mm A")}
+                  </ThemedText>
                 </View>
               ))}
             </View>
           ) : (
-            <ThemedText style={styles.loadingText}>Loading prayer times...</ThemedText>
+            <ThemedText style={styles.loadingText}>
+              Loading prayer times...
+            </ThemedText>
           )}
         </ThemedView>
 
@@ -301,7 +323,7 @@ const HomeScreen = React.memo(() => {
   );
 });
 
-HomeScreen.displayName = 'HomeScreen';
+HomeScreen.displayName = "HomeScreen";
 
 export default HomeScreen;
 
@@ -403,23 +425,22 @@ const styles = StyleSheet.create({
   },
   prayerTimeCard: {},
   prayerIconContainer: {
-    width: 48,
-    height: 48,
+    // width: 40,
+    height: 40,
     borderRadius: 24,
     backgroundColor: "rgba(34, 197, 94, 0.1)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 3,
   },
   prayerName: {
     fontSize: 14,
     fontWeight: "600",
     color: "#374151",
-    marginBottom: 4,
     textAlign: "center",
   },
   prayerTime: {
-    fontSize: 18,
+    fontSize: 12,
     fontWeight: "700",
     color: "#22C55E",
     textAlign: "center",
