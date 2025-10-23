@@ -18,11 +18,14 @@ interface PDFSource {
 
 export default function PDFViewerScreen() {
   const { bookName, bookPath } = useLocalSearchParams();
-  const { top } = useSafeAreaInsets();
+  const { top, bottom } = useSafeAreaInsets();
   const router = useRouter();
   const [source, setSource] = useState<PDFSource | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [pdfRef, setPdfRef] = useState<any>(null);
 
   const loadPDF = useCallback(async () => {
     try {
@@ -62,6 +65,32 @@ export default function PDFViewerScreen() {
     router.back();
   };
 
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      const newPage = currentPage - 1;
+      setCurrentPage(newPage);
+      pdfRef?.setPage(newPage);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      const newPage = currentPage + 1;
+      setCurrentPage(newPage);
+      pdfRef?.setPage(newPage);
+    }
+  };
+
+  const handlePageChanged = (page: number, numberOfPages: number) => {
+    setCurrentPage(page);
+    setTotalPages(numberOfPages);
+  };
+
+  const handleLoadComplete = (numberOfPages: number, filePath: string) => {
+    setTotalPages(numberOfPages);
+    console.log(`Number of pages: ${numberOfPages}`);
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -93,25 +122,91 @@ export default function PDFViewerScreen() {
         <Text style={styles.title}>{bookName}</Text>
       </View>
 
-      {source && (
-        <Pdf
-          source={source}
-          onLoadComplete={(numberOfPages, filePath) => {
-            console.log(`Number of pages: ${numberOfPages}`);
-          }}
-          onPageChanged={(page, numberOfPages) => {
-            console.log(`Current page: ${page}`);
-          }}
-          onError={(error) => {
-            console.error("PDF Error:", error);
-            setError("Failed to display PDF");
-          }}
-          onPressLink={(uri) => {
-            console.log(`Link pressed: ${uri}`);
-          }}
-          style={styles.pdf}
-        />
-      )}
+      <View style={styles.pdfContainer}>
+        {source && (
+          <Pdf
+            ref={setPdfRef}
+            source={source}
+            page={currentPage}
+            onLoadComplete={handleLoadComplete}
+            onPageChanged={handlePageChanged}
+            onError={(error) => {
+              console.error("PDF Error:", error);
+              setError("Failed to display PDF");
+            }}
+            onPressLink={(uri) => {
+              console.log(`Link pressed: ${uri}`);
+            }}
+            style={styles.pdf}
+            enablePaging={false}
+            enableRTL={false}
+            enableAntialiasing={true}
+            enableAnnotationRendering={true}
+            password=""
+            spacing={0}
+            minScale={1.0}
+            maxScale={3.0}
+            scale={1.0}
+            horizontal={false}
+            fitPolicy={0}
+          />
+        )}
+      </View>
+
+      {/* Bottom Navigation Bar */}
+      <View style={[styles.bottomNavigation, { paddingBottom: bottom + 10 }]}>
+        <TouchableOpacity
+          style={[
+            styles.navButton,
+            currentPage <= 1 && styles.navButtonDisabled,
+          ]}
+          onPress={goToPreviousPage}
+          disabled={currentPage <= 1}
+        >
+          <Ionicons
+            name="chevron-back"
+            size={24}
+            color={currentPage <= 1 ? "#ccc" : "#007AFF"}
+          />
+          <Text
+            style={[
+              styles.navButtonText,
+              currentPage <= 1 && styles.navButtonTextDisabled,
+            ]}
+          >
+            Previous
+          </Text>
+        </TouchableOpacity>
+
+        <View style={styles.pageIndicator}>
+          <Text style={styles.pageText}>
+            {currentPage} / {totalPages}
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.navButton,
+            currentPage >= totalPages && styles.navButtonDisabled,
+          ]}
+          onPress={goToNextPage}
+          disabled={currentPage >= totalPages}
+        >
+          <Text
+            style={[
+              styles.navButtonText,
+              currentPage >= totalPages && styles.navButtonTextDisabled,
+            ]}
+          >
+            Next
+          </Text>
+          <Ionicons
+            name="chevron-forward"
+            size={24}
+            color={currentPage >= totalPages ? "#ccc" : "#007AFF"}
+          />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -126,7 +221,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 20,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#22C55E",
     borderBottomWidth: 1,
     borderBottomColor: "#e9ecef",
     borderTopWidth: 1,
@@ -150,10 +245,68 @@ const styles = StyleSheet.create({
     color: "#333",
     flex: 1,
   },
+  pdfContainer: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+    paddingTop: 10,
+  },
   pdf: {
     flex: 1,
     width: Dimensions.get("window").width,
-    height: Dimensions.get("window").height - 100,
+    height: "100%",
+  },
+  bottomNavigation: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: "#f8f9fa",
+    borderTopWidth: 1,
+    borderTopColor: "#e9ecef",
+    gap: 20,
+  },
+  navButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e9ecef",
+    gap: 8,
+    minWidth: 100,
+  },
+  navButtonDisabled: {
+    backgroundColor: "#f8f9fa",
+    borderColor: "#e9ecef",
+  },
+  navButtonText: {
+    fontSize: 16,
+    color: "#007AFF",
+    fontWeight: "600",
+  },
+  navButtonTextDisabled: {
+    color: "#ccc",
+  },
+  pageIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
+    minWidth: 80,
+  },
+  pageText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
   },
   loadingText: {
     fontSize: 16,
