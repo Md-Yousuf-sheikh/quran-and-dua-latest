@@ -4,4 +4,5 @@ export { HeaderSection } from './HeaderSection';
 export { NextPrayerSection } from './NextPrayerSection';
 export { Pagination } from './Pagination';
 export { PrayerTimesSection } from './PrayerTimesSection';
+export { ReminderNotificationCard } from './ReminderNotificationCard';
 

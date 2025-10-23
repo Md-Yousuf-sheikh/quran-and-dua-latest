@@ -12,6 +12,7 @@ import {
   HeaderSection,
   NextPrayerSection,
   PrayerTimesSection,
+  ReminderNotificationCard,
 } from "@/components/sections";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -65,8 +66,6 @@ const HomeScreen = React.memo(() => {
     }
     return [];
   }, [location, currentTime]);
-
-  console.log("calculatedPrayerTimes", JSON.stringify(calculatedPrayerTimes));
 
   // Update prayer times when calculated
   useEffect(() => {
@@ -196,6 +195,8 @@ const HomeScreen = React.memo(() => {
           onBookPress={handleBookPress}
           onPageChange={handlePageChange}
         />
+
+        <ReminderNotificationCard />
       </ThemedView>
     </ScrollView>
   );
