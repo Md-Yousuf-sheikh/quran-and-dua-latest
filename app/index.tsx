@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import moment from 'moment-timezone';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Image,
@@ -12,6 +13,8 @@ import {
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useCurrentLocation } from "@/hooks/useCurrentLocation";
+import { getNextPrayerTime, getPrayerTimes, getTimeUntilNextPrayer, PrayerTimeData } from "@/utils/prayerTimes";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface PDFBook {
@@ -21,30 +24,19 @@ interface PDFBook {
   image: any;
 }
 
-interface PrayerTime {
-  name: string;
-  time: string;
-  icon: string;
-}
+// PrayerTime interface is now imported from utils/prayerTimes
 
 const ITEMS_PER_PAGE = 6;
 
-export default function HomeScreen() {
+const HomeScreen = React.memo(() => {
   const [books, setBooks] = useState<PDFBook[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [prayerTimes, setPrayerTimes] = useState<PrayerTimeData[]>([]);
   const router = useRouter();
   const { top } = useSafeAreaInsets();
-
-  // Mock prayer times - in a real app, you'd fetch these from an API
-  const prayerTimes: PrayerTime[] = [
-    { name: "Fajr", time: "05:30", icon: "sunrise.fill" },
-    { name: "Dhuhr", time: "12:15", icon: "sun.max.fill" },
-    { name: "Asr", time: "15:45", icon: "sun.min.fill" },
-    { name: "Maghrib", time: "18:20", icon: "sunset.fill" },
-    { name: "Isha", time: "19:45", icon: "moon.fill" },
-  ];
+  const { location, error: locationError, loading: locationLoading } = useCurrentLocation();
 
   // Update current time every minute
   useEffect(() => {
@@ -55,48 +47,37 @@ export default function HomeScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  // Function to get the next upcoming prayer time
-  const getNextPrayerTime = () => {
-    const now = currentTime;
-    const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
+  // Memoize prayer times calculation
+  const calculatedPrayerTimes = useMemo(() => {
+    if (location) {
+      return getPrayerTimes(location.lat, location.lon, currentTime);
+    }
+    return [];
+  }, [location, currentTime]);
 
-    // Convert prayer times to minutes for comparison
-    const prayerTimesInMinutes = prayerTimes.map((prayer) => {
-      const [hours, minutes] = prayer.time.split(":").map(Number);
-      return {
-        ...prayer,
-        timeInMinutes: hours * 60 + minutes,
-      };
-    });
+  // Update prayer times when calculated
+  useEffect(() => {
+    setPrayerTimes(calculatedPrayerTimes);
+  }, [calculatedPrayerTimes]);
 
-    // Find the next prayer time
-    const nextPrayer = prayerTimesInMinutes.find(
-      (prayer) => prayer.timeInMinutes > currentTimeMinutes
-    );
+  // Memoize next prayer calculation
+  const nextPrayer = useMemo(() => {
+    return getNextPrayerTime(prayerTimes, currentTime);
+  }, [prayerTimes, currentTime]);
 
-    // If no prayer time found for today, return the first prayer of tomorrow (Fajr)
-    return nextPrayer || prayerTimesInMinutes[0];
-  };
+  // Memoize time until next prayer
+  const timeUntilNextPrayer = useMemo(() => {
+    return getTimeUntilNextPrayer(prayerTimes, currentTime);
+  }, [prayerTimes, currentTime]);
 
-  const nextPrayer = getNextPrayerTime();
+  // Memoize format functions using Moment.js
+  const formatTime = useCallback((date: Date) => {
+    return moment(date).format('HH:mm');
+  }, []);
 
-  // Format current time and date
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-  };
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
+  const formatDate = useCallback((date: Date) => {
+    return moment(date).format('dddd, MMMM Do YYYY');
+  }, []);
 
   useEffect(() => {
     loadPDFBooks();
@@ -131,12 +112,19 @@ export default function HomeScreen() {
     }
   };
 
-  const totalPages = Math.ceil(books.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentBooks = books.slice(startIndex, endIndex);
+  // Memoize pagination calculations
+  const paginationData = useMemo(() => {
+    const totalPages = Math.ceil(books.length / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const currentBooks = books.slice(startIndex, endIndex);
+    
+    return { totalPages, startIndex, endIndex, currentBooks };
+  }, [books, currentPage]);
 
-  const handleBookPress = (book: PDFBook) => {
+  const { totalPages, currentBooks } = paginationData;
+
+  const handleBookPress = useCallback((book: PDFBook) => {
     router.push({
       pathname: "/pdf-viewer",
       params: {
@@ -144,9 +132,9 @@ export default function HomeScreen() {
         bookPath: book.path,
       },
     });
-  };
+  }, [router]);
 
-  const renderPagination = () => {
+  const renderPagination = useCallback(() => {
     if (totalPages <= 1) return null;
 
     return (
@@ -186,7 +174,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </ThemedView>
     );
-  };
+  }, [totalPages, currentPage]);
 
   if (loading) {
     return (
@@ -201,16 +189,35 @@ export default function HomeScreen() {
       style={[styles.scrollContainer]}
       showsVerticalScrollIndicator={false}
     >
-      {/* Next Prayer Highlight */}
+        {/* Next Prayer Highlight */}
       <ThemedView style={[styles.nextPrayerSection, { paddingTop: top }]}>
         <ThemedView style={styles.nextPrayerCard}>
           <View style={styles.nextPrayerInfo}>
-            <ThemedText style={styles.nextPrayerName}>
-              {nextPrayer.name}
-            </ThemedText>
-            <ThemedText style={styles.nextPrayerTime}>
-              {nextPrayer.time}
-            </ThemedText>
+            {locationLoading ? (
+              <ThemedText style={styles.nextPrayerName}>
+                Getting location...
+              </ThemedText>
+            ) : locationError ? (
+              <ThemedText style={styles.nextPrayerName}>
+                Location access denied
+              </ThemedText>
+            ) : nextPrayer ? (
+              <>
+                <ThemedText style={styles.nextPrayerName}>
+                  Next: {nextPrayer.name}
+                </ThemedText>
+                <ThemedText style={styles.nextPrayerTime}>
+                  {nextPrayer.time}
+                </ThemedText>
+                <ThemedText style={styles.nextPrayerRelativeTime}>
+                  {timeUntilNextPrayer}
+                </ThemedText>
+              </>
+            ) : (
+              <ThemedText style={styles.nextPrayerName}>
+                Loading prayer times...
+              </ThemedText>
+            )}
           </View>
         </ThemedView>
       </ThemedView>
@@ -230,21 +237,31 @@ export default function HomeScreen() {
         {/* Prayer Times Grid */}
         <ThemedView style={styles.prayerTimesSection}>
           <ThemedText style={styles.sectionTitle}>Prayer Times</ThemedText>
-          <View style={styles.prayerTimesGrid}>
-            {prayerTimes.map((prayer, index) => (
-              <View key={prayer.name} style={styles.prayerTimeCard}>
-                <View style={styles.prayerIconContainer}>
-                  <IconSymbol
-                    name={prayer.icon as any}
-                    size={24}
-                    color="#22C55E"
-                  />
+          {locationLoading ? (
+            <ThemedText style={styles.loadingText}>Getting location...</ThemedText>
+          ) : locationError ? (
+            <ThemedText style={styles.errorText}>
+              Unable to get location. Please enable location access in settings.
+            </ThemedText>
+          ) : prayerTimes.length > 0 ? (
+            <View style={styles.prayerTimesGrid}>
+              {prayerTimes.map((prayer, index) => (
+                <View key={prayer.name} style={styles.prayerTimeCard}>
+                  <View style={styles.prayerIconContainer}>
+                    <IconSymbol
+                      name={prayer.icon as any}
+                      size={24}
+                      color="#22C55E"
+                    />
+                  </View>
+                  <ThemedText style={styles.prayerName}>{prayer.name}</ThemedText>
+                  <ThemedText style={styles.prayerTime}>{prayer.time}</ThemedText>
                 </View>
-                <ThemedText style={styles.prayerName}>{prayer.name}</ThemedText>
-                <ThemedText style={styles.prayerTime}>{prayer.time}</ThemedText>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          ) : (
+            <ThemedText style={styles.loadingText}>Loading prayer times...</ThemedText>
+          )}
         </ThemedView>
 
         {/* Books Section */}
@@ -282,7 +299,11 @@ export default function HomeScreen() {
       </ThemedView>
     </ScrollView>
   );
-}
+});
+
+HomeScreen.displayName = 'HomeScreen';
+
+export default HomeScreen;
 
 const styles = StyleSheet.create({
   scrollContainer: {
@@ -355,6 +376,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#FFFFFF",
     fontWeight: "800",
+  },
+  nextPrayerRelativeTime: {
+    fontSize: 14,
+    color: "#FFFFFF",
+    fontWeight: "600",
+    opacity: 0.9,
+    marginTop: 4,
   },
   // Prayer Times Section
   prayerTimesSection: {
@@ -488,5 +516,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#6B7280",
     fontWeight: "500",
+  },
+  errorText: {
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 16,
+    color: "#EF4444",
+    fontWeight: "500",
+    paddingHorizontal: 20,
   },
 });
