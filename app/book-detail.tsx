@@ -1,7 +1,7 @@
 import { Hafezi_Quran_Para_data, Hafezi_Quran_Surah_data } from "@/src/data/books-tarjama";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ScrollView,
@@ -29,11 +29,7 @@ export default function BookDetailScreen() {
   const [lastReadPage, setLastReadPage] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'surah' | 'para'>('surah');
 
-  useEffect(() => {
-    loadLastReadPage();
-  }, [bookPath]);
-
-  const loadLastReadPage = async () => {
+  const loadLastReadPage = useCallback(async () => {
     try {
       const key = `lastReadPage_${bookPath}`;
       const savedPage = await AsyncStorage.getItem(key);
@@ -43,7 +39,18 @@ export default function BookDetailScreen() {
     } catch (error) {
       console.error('Error loading last read page:', error);
     }
-  };
+  }, [bookPath]);
+
+  useEffect(() => {
+    loadLastReadPage();
+  }, [loadLastReadPage]);
+
+  // Refresh last read page when user returns to this screen
+  useFocusEffect(
+    useCallback(() => {
+      loadLastReadPage();
+    }, [loadLastReadPage])
+  );
 
   const handleBack = () => {
     router.back();
