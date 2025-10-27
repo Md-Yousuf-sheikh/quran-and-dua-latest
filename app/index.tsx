@@ -139,7 +139,7 @@ const HomeScreen = React.memo(() => {
   const handleBookPress = useCallback(
     (book: PDFBook) => {
       router.push({
-        pathname: "/pdf-viewer",
+        pathname: "/book-detail",
         params: {
           bookName: book.name,
           bookPath: book.path,

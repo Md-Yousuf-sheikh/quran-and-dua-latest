@@ -1,13 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Asset } from "expo-asset";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  Dimensions,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import Pdf from "react-native-pdf";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,7 +18,7 @@ interface PDFSource {
 }
 
 export default function PDFViewerScreen() {
-  const { bookName, bookPath } = useLocalSearchParams();
+  const { bookName, bookPath, initialPage } = useLocalSearchParams();
   const { top, bottom } = useSafeAreaInsets();
   const router = useRouter();
   const [source, setSource] = useState<PDFSource | null>(null);
@@ -31,6 +32,10 @@ export default function PDFViewerScreen() {
     try {
       setLoading(true);
       setError(null);
+
+      // Initialize current page from initialPage parameter or default to 1
+      const startPage = initialPage ? parseInt(initialPage as string, 10) : 1;
+      setCurrentPage(startPage);
 
       // Get the asset from the bundle
       let asset;
@@ -55,11 +60,20 @@ export default function PDFViewerScreen() {
     } finally {
       setLoading(false);
     }
-  }, [bookPath]);
+  }, [bookPath, initialPage]);
 
   useEffect(() => {
     loadPDF();
   }, [loadPDF]);
+
+  const saveCurrentPage = useCallback(async (page: number) => {
+    try {
+      const key = `lastReadPage_${bookPath}`;
+      await AsyncStorage.setItem(key, page.toString());
+    } catch (error) {
+      console.error('Error saving current page:', error);
+    }
+  }, [bookPath]);
 
   const handleBack = () => {
     router.back();
@@ -70,6 +84,7 @@ export default function PDFViewerScreen() {
       const newPage = currentPage - 1;
       setCurrentPage(newPage);
       pdfRef?.setPage(newPage);
+      saveCurrentPage(newPage);
     }
   };
 
@@ -78,12 +93,14 @@ export default function PDFViewerScreen() {
       const newPage = currentPage + 1;
       setCurrentPage(newPage);
       pdfRef?.setPage(newPage);
+      saveCurrentPage(newPage);
     }
   };
 
   const handlePageChanged = (page: number, numberOfPages: number) => {
     setCurrentPage(page);
     setTotalPages(numberOfPages);
+    saveCurrentPage(page);
   };
 
   const handleLoadComplete = (numberOfPages: number, filePath: string) => {
