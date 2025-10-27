@@ -4,6 +4,7 @@ import { Asset } from "expo-asset";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  Animated,
   Dimensions,
   StyleSheet,
   Text,
@@ -28,6 +29,8 @@ export default function PDFViewerScreen() {
   const [totalPages, setTotalPages] = useState(0);
   const [pdfRef, setPdfRef] = useState<any>(null);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("Preparing your spiritual journey...");
+  const [loadingAnimation] = useState(new Animated.Value(0));
 
   const loadPDF = useCallback(async () => {
     try {
@@ -62,6 +65,48 @@ export default function PDFViewerScreen() {
   useEffect(() => {
     loadPDF();
   }, [loadPDF]);
+
+  // Loading animation and message cycling
+  useEffect(() => {
+    if (loading) {
+      // Start pulsing animation
+      const pulseAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(loadingAnimation, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(loadingAnimation, {
+            toValue: 0,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulseAnimation.start();
+
+      // Cycle through inspirational messages
+      const messages = [
+        "Preparing your spiritual journey...",
+        "Loading the Holy Quran...",
+        "May Allah bless your reading...",
+        "Connecting to divine wisdom...",
+        "Almost ready to begin...",
+      ];
+
+      let messageIndex = 0;
+      const messageInterval = setInterval(() => {
+        setLoadingMessage(messages[messageIndex]);
+        messageIndex = (messageIndex + 1) % messages.length;
+      }, 2000);
+
+      return () => {
+        pulseAnimation.stop();
+        clearInterval(messageInterval);
+      };
+    }
+  }, [loading, loadingAnimation]);
 
   const saveCurrentPage = useCallback(async (page: number) => {
     try {
@@ -128,8 +173,63 @@ export default function PDFViewerScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.loadingText}>Loading PDF...</Text>
+      <View style={styles.loadingContainer}>
+        <View style={styles.loadingContent}>
+          {/* Animated Book Icon */}
+          <Animated.View
+            style={[
+              styles.bookIconContainer,
+              {
+                transform: [
+                  {
+                    scale: loadingAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.8, 1.2],
+                    }),
+                  },
+                ],
+                opacity: loadingAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.7, 1],
+                }),
+              },
+            ]}
+          >
+            <Ionicons name="book" size={80} color="#22C55E" />
+          </Animated.View>
+
+          {/* Loading Message */}
+          <Text style={styles.loadingMessage}>{loadingMessage}</Text>
+
+          {/* Animated Dots */}
+          <View style={styles.dotsContainer}>
+            {[0, 1, 2].map((index) => (
+              <Animated.View
+                key={index}
+                style={[
+                  styles.dot,
+                  {
+                    transform: [
+                      {
+                        scale: loadingAnimation.interpolate({
+                          inputRange: [0, 0.5, 1],
+                          outputRange: [1, 1.5, 1],
+                        }),
+                      },
+                    ],
+                    opacity: loadingAnimation.interpolate({
+                      inputRange: [0, 0.5, 1],
+                      outputRange: [0.3, 1, 0.3],
+                    }),
+                  },
+                ]}
+              />
+            ))}
+          </View>
+
+          {/* Book Name */}
+          <Text style={styles.bookName}>{bookName}</Text>
+        </View>
       </View>
     );
   }
@@ -251,6 +351,51 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 40,
+  },
+  bookIconContainer: {
+    marginBottom: 30,
+    padding: 20,
+    backgroundColor: "#F0FDF4",
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: "#BBF7D0",
+  },
+  loadingMessage: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#1F2937",
+    textAlign: "center",
+    marginBottom: 30,
+    lineHeight: 24,
+  },
+  dotsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 30,
+  },
+  dot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#22C55E",
+    marginHorizontal: 4,
+  },
+  bookName: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#6B7280",
+    textAlign: "center",
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -342,12 +487,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#333",
-  },
-  loadingText: {
-    fontSize: 16,
-    textAlign: "center",
-    marginTop: 50,
-    color: "#666",
   },
   errorText: {
     fontSize: 16,
