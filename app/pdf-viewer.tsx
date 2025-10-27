@@ -4,11 +4,11 @@ import { Asset } from "expo-asset";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    Dimensions,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import Pdf from "react-native-pdf";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,15 +27,12 @@ export default function PDFViewerScreen() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [pdfRef, setPdfRef] = useState<any>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const loadPDF = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-
-      // Initialize current page from initialPage parameter or default to 1
-      const startPage = initialPage ? parseInt(initialPage as string, 10) : 1;
-      setCurrentPage(startPage);
 
       // Get the asset from the bundle
       let asset;
@@ -60,7 +57,7 @@ export default function PDFViewerScreen() {
     } finally {
       setLoading(false);
     }
-  }, [bookPath, initialPage]);
+  }, [bookPath]);
 
   useEffect(() => {
     loadPDF();
@@ -80,21 +77,29 @@ export default function PDFViewerScreen() {
   };
 
   const goToPreviousPage = () => {
-    if (currentPage > 1) {
-      const newPage = currentPage - 1;
-      setCurrentPage(newPage);
-      pdfRef?.setPage(newPage);
-      saveCurrentPage(newPage);
-    }
+    if (isNavigating || currentPage <= 1) return;
+    
+    setIsNavigating(true);
+    const newPage = currentPage - 1;
+    setCurrentPage(newPage);
+    pdfRef?.setPage(newPage);
+    saveCurrentPage(newPage);
+    
+    // Reset navigation state after a short delay
+    setTimeout(() => setIsNavigating(false), 300);
   };
 
   const goToNextPage = () => {
-    if (currentPage < totalPages) {
-      const newPage = currentPage + 1;
-      setCurrentPage(newPage);
-      pdfRef?.setPage(newPage);
-      saveCurrentPage(newPage);
-    }
+    if (isNavigating || currentPage >= totalPages) return;
+    
+    setIsNavigating(true);
+    const newPage = currentPage + 1;
+    setCurrentPage(newPage);
+    pdfRef?.setPage(newPage);
+    saveCurrentPage(newPage);
+    
+    // Reset navigation state after a short delay
+    setTimeout(() => setIsNavigating(false), 300);
   };
 
   const handlePageChanged = (page: number, numberOfPages: number) => {
@@ -106,6 +111,19 @@ export default function PDFViewerScreen() {
   const handleLoadComplete = (numberOfPages: number, filePath: string) => {
     setTotalPages(numberOfPages);
     console.log(`Number of pages: ${numberOfPages}`);
+    
+    // Validate and set initial page after PDF loads
+    if (initialPage) {
+      const requestedPage = parseInt(initialPage as string, 10);
+      if (requestedPage >= 1 && requestedPage <= numberOfPages) {
+        setCurrentPage(requestedPage);
+        pdfRef?.setPage(requestedPage);
+      } else {
+        // Show error for invalid page
+        setError(`Page ${requestedPage} does not exist. This book has ${numberOfPages} pages.`);
+        setCurrentPage(1);
+      }
+    }
   };
 
   if (loading) {
@@ -175,23 +193,23 @@ export default function PDFViewerScreen() {
         <TouchableOpacity
           style={[
             styles.navButton,
-            currentPage <= 1 && styles.navButtonDisabled,
+            (currentPage <= 1 || isNavigating) && styles.navButtonDisabled,
           ]}
           onPress={goToPreviousPage}
-          disabled={currentPage <= 1}
+          disabled={currentPage <= 1 || isNavigating}
         >
           <Ionicons
             name="chevron-back"
             size={24}
-            color={currentPage <= 1 ? "#ccc" : "#007AFF"}
+            color={(currentPage <= 1 || isNavigating) ? "#ccc" : "#007AFF"}
           />
           <Text
             style={[
               styles.navButtonText,
-              currentPage <= 1 && styles.navButtonTextDisabled,
+              (currentPage <= 1 || isNavigating) && styles.navButtonTextDisabled,
             ]}
           >
-            Previous
+            {isNavigating ? "Loading..." : "Previous"}
           </Text>
         </TouchableOpacity>
 
@@ -204,23 +222,23 @@ export default function PDFViewerScreen() {
         <TouchableOpacity
           style={[
             styles.navButton,
-            currentPage >= totalPages && styles.navButtonDisabled,
+            (currentPage >= totalPages || isNavigating) && styles.navButtonDisabled,
           ]}
           onPress={goToNextPage}
-          disabled={currentPage >= totalPages}
+          disabled={currentPage >= totalPages || isNavigating}
         >
           <Text
             style={[
               styles.navButtonText,
-              currentPage >= totalPages && styles.navButtonTextDisabled,
+              (currentPage >= totalPages || isNavigating) && styles.navButtonTextDisabled,
             ]}
           >
-            Next
+            {isNavigating ? "Loading..." : "Next"}
           </Text>
           <Ionicons
             name="chevron-forward"
             size={24}
-            color={currentPage >= totalPages ? "#ccc" : "#007AFF"}
+            color={(currentPage >= totalPages || isNavigating) ? "#ccc" : "#007AFF"}
           />
         </TouchableOpacity>
       </View>
